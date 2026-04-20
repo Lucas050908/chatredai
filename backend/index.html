@@ -23,56 +23,41 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.5);
         }
         .logo {
-            width: 36px;
-            height: 36px;
+            width: 36px; height: 36px;
             background: #fff;
             border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: #c0392b;
-            font-size: 1.1em;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: #c0392b; font-size: 1.1em;
         }
         header h1 { font-size: 1.3em; letter-spacing: 1px; }
         header span { font-size: 0.75em; color: #ffaaaa; margin-left: 4px; }
+        #status-bar {
+            background: #1a1a1a;
+            padding: 6px 20px;
+            font-size: 0.8em;
+            color: #888;
+            border-bottom: 1px solid #222;
+        }
+        #status-bar.ready { color: #4caf50; }
+        #status-bar.loading { color: #ff9800; }
         #chat-box {
-            flex: 1;
-            overflow-y: auto;
+            flex: 1; overflow-y: auto;
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+            display: flex; flex-direction: column; gap: 12px;
         }
-        #chat-box::-webkit-scrollbar { width: 6px; }
-        #chat-box::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-        .msg-wrap {
-            display: flex;
-            flex-direction: column;
-            max-width: 72%;
-        }
+        .msg-wrap { display: flex; flex-direction: column; max-width: 72%; }
         .msg-wrap.user { align-self: flex-end; align-items: flex-end; }
-        .msg-wrap.bot { align-self: flex-start; align-items: flex-start; }
+        .msg-wrap.bot  { align-self: flex-start; align-items: flex-start; }
         .msg-label { font-size: 0.7em; color: #888; margin-bottom: 3px; padding: 0 6px; }
         .msg {
-            padding: 10px 16px;
-            border-radius: 18px;
-            line-height: 1.5;
-            word-break: break-word;
+            padding: 10px 16px; border-radius: 18px;
+            line-height: 1.5; word-break: break-word; white-space: pre-wrap;
         }
         .user .msg { background: #c0392b; border-bottom-right-radius: 4px; }
-        .bot .msg {
-            background: #222;
-            border: 1px solid #333;
-            border-bottom-left-radius: 4px;
-        }
+        .bot .msg  { background: #222; border: 1px solid #333; border-bottom-left-radius: 4px; }
         .typing-dots span {
-            display: inline-block;
-            width: 7px;
-            height: 7px;
-            background: #aaa;
-            border-radius: 50%;
-            margin: 0 2px;
+            display: inline-block; width: 7px; height: 7px;
+            background: #aaa; border-radius: 50%; margin: 0 2px;
             animation: bounce 1.2s infinite;
         }
         .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -82,50 +67,35 @@
             40% { transform: translateY(-6px); }
         }
         #input-area {
-            padding: 14px 16px;
-            display: flex;
-            gap: 10px;
-            background: #1a1a1a;
-            border-top: 1px solid #2a2a2a;
+            padding: 14px 16px; display: flex; gap: 10px;
+            background: #1a1a1a; border-top: 1px solid #2a2a2a;
         }
         #input {
-            flex: 1;
-            padding: 11px 18px;
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            color: #f0f0f0;
-            border-radius: 24px;
-            font-size: 0.95em;
-            outline: none;
-            transition: border-color 0.2s;
+            flex: 1; padding: 11px 18px;
+            background: #2a2a2a; border: 1px solid #3a3a3a;
+            color: #f0f0f0; border-radius: 24px; font-size: 0.95em; outline: none;
         }
         #input:focus { border-color: #c0392b; }
         #input::placeholder { color: #666; }
         #send {
-            padding: 11px 22px;
-            background: #c0392b;
-            color: #fff;
-            border: none;
-            border-radius: 24px;
-            cursor: pointer;
-            font-size: 0.95em;
-            font-weight: bold;
-            transition: background 0.2s;
+            padding: 11px 22px; background: #c0392b;
+            color: #fff; border: none; border-radius: 24px;
+            cursor: pointer; font-size: 0.95em; font-weight: bold;
         }
         #send:hover { background: #e74c3c; }
-        #send:active { background: #a93226; }
         #send:disabled { background: #555; cursor: default; }
     </style>
 </head>
 <body>
     <header>
         <div class="logo">AI</div>
-        <h1>ChatRedAI <span>v0.1</span></h1>
+        <h1>ChatRedAI <span>v0.2</span></h1>
     </header>
+    <div id="status-bar" class="loading">Model indlæses... vent venligst</div>
     <div id="chat-box">
         <div class="msg-wrap bot">
             <div class="msg-label">ChatRedAI</div>
-            <div class="msg">Hej! Jeg er ChatRedAI. Hvad kan jeg hjælpe dig med?</div>
+            <div class="msg">Hej! Jeg er ChatRedAI med DeepSeek AI. AI modellen indlæses i baggrunden — du kan skrive nu, men første svar kan tage op til 1 minut.</div>
         </div>
     </div>
     <div id="input-area">
@@ -134,8 +104,33 @@
     </div>
     <script>
         var chatBox = document.getElementById('chat-box');
-        var input = document.getElementById('input');
+        var input   = document.getElementById('input');
         var sendBtn = document.getElementById('send');
+        var statusBar = document.getElementById('status-bar');
+
+        // Poll model status
+        function checkStatus() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/status', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var s = JSON.parse(xhr.responseText);
+                    if (s.model_ready) {
+                        statusBar.textContent = 'DeepSeek AI klar';
+                        statusBar.className = 'ready';
+                    } else if (s.model_loading) {
+                        statusBar.textContent = 'AI model indlæses... (vent venligst)';
+                        statusBar.className = 'loading';
+                        setTimeout(checkStatus, 3000);
+                    } else {
+                        statusBar.textContent = 'Fejl: AI model ikke fundet';
+                        statusBar.className = '';
+                    }
+                }
+            };
+            xhr.send();
+        }
+        setTimeout(checkStatus, 2000);
 
         function addMessage(text, isUser) {
             var wrap = document.createElement('div');
@@ -153,7 +148,7 @@
             return wrap;
         }
 
-        function addTyping() {
+        function addTyping(note) {
             var wrap = document.createElement('div');
             wrap.className = 'msg-wrap bot';
             var label = document.createElement('div');
@@ -162,6 +157,12 @@
             var msg = document.createElement('div');
             msg.className = 'msg';
             msg.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+            if (note) {
+                var n = document.createElement('div');
+                n.style.cssText = 'font-size:0.75em;color:#888;margin-top:6px';
+                n.textContent = note;
+                msg.appendChild(n);
+            }
             wrap.appendChild(label);
             wrap.appendChild(msg);
             chatBox.appendChild(wrap);
@@ -175,11 +176,12 @@
             input.value = '';
             sendBtn.disabled = true;
             addMessage(text, true);
-            var typing = addTyping();
+            var typing = addTyping('Tænker... (kan tage op til 1 minut)');
 
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/chat', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.timeout = 180000; // 3 minutter timeout
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     typing.remove();
@@ -189,18 +191,19 @@
                             var data = JSON.parse(xhr.responseText);
                             addMessage(data.reply, false);
                         } catch(e) {
-                            addMessage('Fejl: Ugyldigt svar fra serveren.', false);
+                            addMessage('Fejl: Ugyldigt svar.', false);
                         }
                     } else {
                         addMessage('Fejl: Serveren svarede ikke korrekt.', false);
                     }
                     input.focus();
+                    checkStatus();
                 }
             };
-            xhr.onerror = function() {
+            xhr.ontimeout = function() {
                 typing.remove();
                 sendBtn.disabled = false;
-                addMessage('Fejl: Kunne ikke kontakte serveren.', false);
+                addMessage('Timeout: AI modellen tog for lang tid. Prøv igen.', false);
                 input.focus();
             };
             xhr.send(JSON.stringify({message: text}));
