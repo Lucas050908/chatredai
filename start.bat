@@ -73,8 +73,9 @@ if not exist "%PY%" (
 )
 
 echo [3/4] Konfigurerer Python...
-echo import site >> "%PYTHON_DIR%\python38._pth" 2>nul
-powershell -ExecutionPolicy Bypass -Command "Get-ChildItem '%PYTHON_DIR%' -Filter '*._pth' | ForEach-Object { $f = $_.FullName; $c = Get-Content $f; if ($c -notcontains 'import site') { $c + 'import site' | Set-Content $f } else { $c -replace '#import site','import site' | Set-Content $f } }" 2>nul
+for %%F in ("%PYTHON_DIR%\*._pth") do (
+    powershell -ExecutionPolicy Bypass -Command "$c = Get-Content '%%F'; $c -replace '#import site','import site' | Set-Content '%%F'"
+)
 
 :: Download pip
 certutil -urlcache -split -f "https://bootstrap.pypa.io/pip/3.8/get-pip.py" "%DEPS%\get-pip.py" >nul 2>&1
