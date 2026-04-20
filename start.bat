@@ -33,9 +33,9 @@ if "%PROCESSOR_ARCHITECTURE%"=="AMD64" set "ARCH=amd64"
 if "%PROCESSOR_ARCHITEW6432%"=="AMD64" set "ARCH=amd64"
 
 if "%ARCH%"=="amd64" (
-    set "PY_URL=https://www.python.org/ftp/python/3.8.18/python-3.8.18-embed-amd64.zip"
+    set "PY_URL=https://www.python.org/ftp/python/3.8.10/python-3.8.10-embed-amd64.zip"
 ) else (
-    set "PY_URL=https://www.python.org/ftp/python/3.8.18/python-3.8.18-embed-win32.zip"
+    set "PY_URL=https://www.python.org/ftp/python/3.8.10/python-3.8.10-embed-win32.zip"
 )
 
 echo [1/4] Downloader Python 3.8 (%ARCH%)...
