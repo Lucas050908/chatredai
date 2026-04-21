@@ -1,40 +1,54 @@
 from flask import Flask, request, jsonify, send_file
 import os
+import subprocess
 import threading
+import time
+import urllib.request
+import json
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(os.path.dirname(BASE_DIR), 'model', 'model.gguf')
+ROOT_DIR = os.path.dirname(BASE_DIR)
+MODEL_PATH = os.path.join(ROOT_DIR, 'model', 'model.gguf')
+LLAMA_EXE = os.path.join(ROOT_DIR, 'llama', 'llama-server.exe')
+LLAMA_PORT = 8080
 
 app = Flask(__name__)
+_server_proc = None
+_server_ready = False
 
-_llm = None
-_llm_loading = False
-_llm_lock = threading.Lock()
+def start_llama_server():
+    global _server_proc, _server_ready
+    if not os.path.exists(LLAMA_EXE):
+        print("FEJL: llama-server.exe ikke fundet i llama/ mappen")
+        return
+    if not os.path.exists(MODEL_PATH):
+        print("FEJL: model.gguf ikke fundet i model/ mappen")
+        return
 
-def load_model():
-    global _llm, _llm_loading
-    with _llm_lock:
-        if _llm is not None:
-            return _llm
-        _llm_loading = True
+    threads = max(1, (os.cpu_count() or 4) - 1)
+    print(f"Starter llama-server med {threads} tråde...")
+    _server_proc = subprocess.Popen(
+        [LLAMA_EXE, '-m', MODEL_PATH,
+         '--port', str(LLAMA_PORT),
+         '--ctx-size', '4096',
+         '-t', str(threads),
+         '--no-mmap'],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    # Vent på serveren er klar
+    for _ in range(60):
+        time.sleep(2)
         try:
-            from llama_cpp import Llama
-            print("Indlaeser AI model... (kan tage 30-60 sekunder)")
-            _llm = Llama(
-                model_path=MODEL_PATH,
-                n_ctx=4096,
-                n_threads=max(1, os.cpu_count() - 1),
-                verbose=False
-            )
-            print("AI model klar!")
-        except Exception as e:
-            print(f"Fejl ved indlaesning af model: {e}")
-        finally:
-            _llm_loading = False
-    return _llm
+            urllib.request.urlopen(f'http://localhost:{LLAMA_PORT}/health', timeout=2)
+            _server_ready = True
+            print("AI server klar!")
+            return
+        except:
+            pass
+    print("Advarsel: AI server startede ikke inden for 2 minutter")
 
-# Indlaes model i baggrunden ved opstart
-threading.Thread(target=load_model, daemon=True).start()
+threading.Thread(target=start_llama_server, daemon=True).start()
 
 @app.route('/')
 def index():
@@ -42,36 +56,38 @@ def index():
 
 @app.route('/status')
 def status():
-    return jsonify({
-        'model_ready': _llm is not None,
-        'model_loading': _llm_loading
-    })
+    return jsonify({'model_ready': _server_ready})
 
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json(silent=True) or {}
     message = data.get('message', '')
 
-    llm = _llm
-    if llm is None:
-        if _llm_loading:
-            return jsonify({'reply': 'AI modellen indlæses stadig... Vent lidt og prøv igen.'})
-        return jsonify({'reply': 'Fejl: AI model ikke fundet. Tjek at model/model.gguf eksisterer.'})
+    if not _server_ready:
+        if not os.path.exists(MODEL_PATH):
+            return jsonify({'reply': 'Fejl: model.gguf mangler i model/ mappen.'})
+        return jsonify({'reply': 'AI modellen starter... vent lidt og prøv igen.'})
 
     try:
-        response = llm.create_chat_completion(
-            messages=[{"role": "user", "content": message}],
-            max_tokens=1024,
-            temperature=0.7,
+        payload = json.dumps({
+            'messages': [{'role': 'user', 'content': message}],
+            'max_tokens': 1024,
+            'temperature': 0.7,
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            f'http://localhost:{LLAMA_PORT}/v1/chat/completions',
+            data=payload,
+            headers={'Content-Type': 'application/json'}
         )
-        reply = response['choices'][0]['message']['content'].strip()
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+            reply = result['choices'][0]['message']['content'].strip()
     except Exception as e:
-        reply = f"Fejl under generering: {e}"
+        reply = f'Fejl: {e}'
 
     return jsonify({'reply': reply})
 
 if __name__ == '__main__':
-    port = 5000
-    print(f"ChatRedAI korer pa: http://localhost:{port}")
+    print(f"ChatRedAI korer pa: http://localhost:5000")
     print("Tryk Ctrl+C for at stoppe.")
-    app.run(host='127.0.0.1', port=port, debug=False)
+    app.run(host='127.0.0.1', port=5000, debug=False)
